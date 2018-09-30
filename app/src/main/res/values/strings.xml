@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">GameBacklog</string>
+    <string name="title">Title</string>
+    <string name="platform">Platform</string>
+    <string name="notes">Notes</string>
+    <string name="status">Status</string>
+    <string name="input_required">This field is required</string>
+    <string name="game_saved">Game has been saved!</string>
+    <string name="game_modified">Game has been modified</string>
+    <string name="game_deleted">Game has been deleted</string>
+    <string-array name="game_status">
+        <item>Want to play</item>
+        <item>Playing</item>
+        <item>Stalled</item>
+        <item>Dropped</item>
+    </string-array>
+</resources>
