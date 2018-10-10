@@ -1,28 +1,30 @@
 package com.example.gamebacklog.data.model;
 
-import java.io.Serializable;
+import android.arch.persistence.room.ColumnInfo;
+import android.arch.persistence.room.Entity;
+import android.arch.persistence.room.PrimaryKey;
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class Game implements Serializable {
 
-    // Labels table name
-    public static final String TABLE = "games";
+@Entity(tableName = "games")
+public class Game implements Parcelable {
 
-    // Labels Table Columns names
-    public static final String KEY_ID = "id";
-    public static final String KEY_TITLE = "title";
-    public static final String KEY_PLATFORM = "platform";
-    public static final String KEY_DATE = "date";
-    public static final String KEY_STATUS = "status";
-    public static final String KEY_NOTES = "notes";
-
+    @PrimaryKey(autoGenerate = true)
     private int id;
+    @ColumnInfo(name = "title")
     private String title;
+    @ColumnInfo(name = "platform")
     private String platform;
+    @ColumnInfo(name = "dateAdded")
     private String dateAdded;
+    @ColumnInfo(name = "status")
     private String status;
+    @ColumnInfo(name = "notes")
     private String notes;
 
     public Game() {
@@ -30,17 +32,33 @@ public class Game implements Serializable {
     }
 
     public Game(String title, String platform, String status, String notes) {
-        this(-1, title, platform, status, notes);
+        this.title = title;
+        this.platform = platform;
         this.dateAdded = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date());
+        this.status = status;
+        this.notes = notes;
     }
 
-    public Game(int id, String title, String platform, String status, String notes) {
-        this.id = id;
-        this.title = title;
-        this.notes = notes;
-        this.platform = platform;
-        this.status = status;
+    protected Game(Parcel in) {
+        id = in.readInt();
+        title = in.readString();
+        platform = in.readString();
+        dateAdded = in.readString();
+        status = in.readString();
+        notes = in.readString();
     }
+
+    public static final Creator<Game> CREATOR = new Creator<Game>() {
+        @Override
+        public Game createFromParcel(Parcel in) {
+            return new Game(in);
+        }
+
+        @Override
+        public Game[] newArray(int size) {
+            return new Game[size];
+        }
+    };
 
     public int getId() {
         return id;
@@ -88,5 +106,20 @@ public class Game implements Serializable {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeInt(id);
+        dest.writeString(title);
+        dest.writeString(platform);
+        dest.writeString(dateAdded);
+        dest.writeString(status);
+        dest.writeString(notes);
     }
 }

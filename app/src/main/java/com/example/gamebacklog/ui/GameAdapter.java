@@ -1,6 +1,5 @@
 package com.example.gamebacklog.ui;
 
-import android.database.Cursor;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -8,16 +7,22 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import com.example.gamebacklog.R;
-import com.example.gamebacklog.data.db.GameContract;
 import com.example.gamebacklog.data.model.Game;
+
+import java.util.List;
 
 public class GameAdapter extends RecyclerView.Adapter<GameAdapter.GameViewHolder> {
 
-    private Cursor cursor;
+    private List<Game> mGameList;
 
     // A reference to a OnGameClickListener which will be invoked upon click event, note that this
     // value can be null and should always be checked accordingly before invoking
     private OnGameClickListener onGameClickListener;
+
+    public GameAdapter(List<Game> gameList, OnGameClickListener onGameClickListener) {
+        mGameList = gameList;
+        this.onGameClickListener = onGameClickListener;
+    }
 
     @Override
     public GameViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -29,41 +34,36 @@ public class GameAdapter extends RecyclerView.Adapter<GameAdapter.GameViewHolder
     }
 
     @Override
-    public void onBindViewHolder(GameViewHolder holder, int position) {
-        // Move the cursor to the right position
-        cursor.moveToPosition(position);
-        // Create a game object from the cursor's data
-        Game game = new Game();
-        game.setId(cursor.getInt(cursor.getColumnIndex(GameContract.COLUMN_NAME_ID)));
-        game.setTitle(cursor.getString(cursor.getColumnIndex(GameContract.COLUMN_NAME_TITLE)));
-        game.setPlatform(cursor.getString(cursor.getColumnIndex(GameContract.COLUMN_NAME_PLATFORM)));
-        game.setDateAdded(cursor.getString(cursor.getColumnIndex(GameContract.COLUMN_NAME_DATE)));
-        game.setStatus(cursor.getString(cursor.getColumnIndex(GameContract.COLUMN_NAME_STATUS)));
-        game.setNotes(cursor.getString(cursor.getColumnIndex(GameContract.COLUMN_NAME_NOTES)));
+    public void onBindViewHolder(GameViewHolder holder, final int position) {
+        final Game game = mGameList.get(position);
         // Bind the game object to the view
-        holder.bind(game);
+        holder.title.setText(game.getTitle());
+        holder.date.setText(game.getDateAdded());
+        holder.status.setText(game.getStatus());
+        holder.platform.setText(game.getPlatform());
+        holder.root.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                onGameClickListener.onGameClick(position);
+            }
+        });
     }
 
     @Override
     public int getItemCount() {
-        return cursor.getCount();
+        return mGameList.size();
     }
 
-    public void swapCursor(Cursor cursor) {
-        this.cursor = cursor;
-    }
-
-    /**
-     * Set a listener to receive a callback when a user clicks on a game.
-     *
-     * @param listener the listener which will receive the callback
-     */
-    public void setOnGameClickListener(OnGameClickListener listener) {
-        onGameClickListener = listener;
+    public void swapList (List<Game> newList) {
+        mGameList = newList;
+        if (newList != null) {
+            // Force the RecyclerView to refresh
+            this.notifyDataSetChanged();
+        }
     }
 
     public interface OnGameClickListener {
-        void onGameClick(Game game);
+        void onGameClick(int position);
     }
 
     /**
@@ -72,7 +72,6 @@ public class GameAdapter extends RecyclerView.Adapter<GameAdapter.GameViewHolder
      */
     class GameViewHolder extends RecyclerView.ViewHolder {
 
-        private Game game;
         private final View root;
         private final TextView title;
         private final TextView platform;
@@ -88,25 +87,5 @@ public class GameAdapter extends RecyclerView.Adapter<GameAdapter.GameViewHolder
             platform = view.findViewById(R.id.tvPlatform);
         }
 
-        public Game getGame() {
-            return game;
-        }
-
-        void bind(final Game game) {
-            this.game = game;
-            title.setText(game.getTitle());
-            date.setText(game.getDateAdded());
-            status.setText(game.getStatus());
-            platform.setText(game.getPlatform());
-
-            root.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if (onGameClickListener != null) {
-                        onGameClickListener.onGameClick(game);
-                    }
-                }
-            });
-        }
     }
 }

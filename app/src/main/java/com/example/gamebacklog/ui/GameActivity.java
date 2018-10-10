@@ -14,11 +14,13 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.example.gamebacklog.R;
-import com.example.gamebacklog.data.GameRepository;
 import com.example.gamebacklog.data.model.Game;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
+
+import static com.example.gamebacklog.ui.MainActivity.TASK_INSERT_GAME;
+import static com.example.gamebacklog.ui.MainActivity.TASK_UPDATE_GAME;
 
 public class GameActivity extends AppCompatActivity {
 
@@ -69,7 +71,7 @@ public class GameActivity extends AppCompatActivity {
         } else if (getIntent().getAction() == Intent.ACTION_EDIT) {
             // get game from previous activity
             Log.d(TAG, "onCreate: Editing");
-            game = (Game) getIntent().getSerializableExtra("game");
+            game = getIntent().getParcelableExtra("game");
             inputTitle.setText(game.getTitle());
             inputNotes.setText(game.getNotes());
             inputPlatform.setText(game.getPlatform());
@@ -118,9 +120,7 @@ public class GameActivity extends AppCompatActivity {
 
         if (!checkEmptyInput(inputTitle) && !checkEmptyInput(inputPlatform)) {
             Game game = new Game(title, platform, status, notes);
-            GameRepository gameRepository = new GameRepository(this);
-            gameRepository.save(game);
-
+            new MainActivity.GameAsyncTask(TASK_INSERT_GAME).execute(game);
             Toast.makeText(this, R.string.game_saved, Toast.LENGTH_SHORT).show();
             finish();
         }
@@ -140,22 +140,20 @@ public class GameActivity extends AppCompatActivity {
 
         // Validate that the title and platform is not empty
         if (!checkEmptyInput(inputTitle) && !checkEmptyInput(inputPlatform)) {
-            Game updatedGame = new Game(title, platform, status, notes);
-
-            GameRepository gameRepository = new GameRepository(this);
-            gameRepository.update(game.getId(), updatedGame);
-
+            game.setTitle(title);
+            game.setNotes(notes);
+            game.setPlatform(platform);
+            game.setStatus(status);
+            new MainActivity.GameAsyncTask(TASK_UPDATE_GAME).execute(game);
             Toast.makeText(this, R.string.game_modified, Toast.LENGTH_SHORT).show();
-
             finish();
         }
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item){
-//        Intent myIntent = new Intent(getApplicationContext(), MainActivity.class);
-//        startActivityForResult(myIntent, 0);
-        finish();
+        Intent myIntent = new Intent(getApplicationContext(), MainActivity.class);
+        startActivityForResult(myIntent, 0);
         return true;
 
     }

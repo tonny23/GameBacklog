@@ -1,7 +1,7 @@
 package com.example.gamebacklog.ui;
 
 import android.content.Intent;
-import android.database.Cursor;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
@@ -13,16 +13,24 @@ import android.util.Log;
 import android.widget.Toast;
 
 import com.example.gamebacklog.R;
-import com.example.gamebacklog.data.GameRepository;
+import com.example.gamebacklog.data.db.AppDatabase;
 import com.example.gamebacklog.data.model.Game;
+
+import java.util.List;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements GameAdapter.OnGameClickListener {
 
     private static final String TAG = "MainActivity";
+    public final static int TASK_GET_ALL_GAMES = 0;
+    public final static int TASK_DELETE_GAME = 1;
+    public final static int TASK_UPDATE_GAME = 2;
+    public final static int TASK_INSERT_GAME = 3;
+
+    public static AppDatabase db;
 
     @BindView(R.id.rvBacklog)
     RecyclerView rvBacklog;
@@ -30,53 +38,55 @@ public class MainActivity extends AppCompatActivity {
     @BindView(R.id.fabAdd)
     FloatingActionButton fabAdd;
 
-    private GameAdapter mAdapter;
+    private static GameAdapter mAdapter;
+    private static List<Game> mGameList;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        ButterKnife.bind(this);
+        @Override
+        protected void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            setContentView(R.layout.activity_main);
+            ButterKnife.bind(this);
+            db = AppDatabase.getInstance(this);
+            new GameAsyncTask(TASK_GET_ALL_GAMES).execute();
 
-        mAdapter = new GameAdapter();
-        //Add a animation when a new entry is added to the recyclerview
-        RecyclerView.ItemAnimator itemAnimator = new DefaultItemAnimator();
-        itemAnimator.setAddDuration(200L);
-        itemAnimator.setRemoveDuration(200L);
+            mAdapter = new GameAdapter(mGameList, this);
+            //Add a animation when a new entry is added to the recyclerview
+            RecyclerView.ItemAnimator itemAnimator = new DefaultItemAnimator();
+            itemAnimator.setAddDuration(200L);
+            itemAnimator.setRemoveDuration(200L);
 
-        rvBacklog.setAdapter(mAdapter);
-        rvBacklog.setLayoutManager(new LinearLayoutManager(this));
-        rvBacklog.setItemAnimator(itemAnimator);
+            rvBacklog.setAdapter(mAdapter);
+            rvBacklog.setLayoutManager(new LinearLayoutManager(this));
+            rvBacklog.setItemAnimator(itemAnimator);
 
-        // Instantiate an ItemTouchHelper which will listen for move and swipe events on each row
-        // within our RecyclerView and it will propagate these events to the itemTouchCallback
-        ItemTouchHelper.SimpleCallback simpleItemTouchCallback =
-                new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
-                    @Override
-                    public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder
-                            target) {
-                        return false;
-                    }
+            // Instantiate an ItemTouchHelper which will listen for move and swipe events on each row
+            // within our RecyclerView and it will propagate these events to the itemTouchCallback
+            ItemTouchHelper.SimpleCallback simpleItemTouchCallback =
+                    new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT | ItemTouchHelper.RIGHT) {
+                        @Override
+                        public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder
+                                target) {
+                            return false;
+                        }
 
-                    //Called when a user swipes left or right on a ViewHolder
-                    @Override
-                    public void onSwiped(RecyclerView.ViewHolder viewHolder, int swipeDir) {
-                        Game game = ((GameAdapter.GameViewHolder) viewHolder).getGame();
-                        deleteGame(game);
-                    }
-                };
+                        //Called when a user swipes left or right on a ViewHolder
+                        @Override
+                        public void onSwiped(RecyclerView.ViewHolder viewHolder, int swipeDir) {
+                            int position = viewHolder.getAdapterPosition();
+                            Game game = mGameList.get(position);
+                            deleteGame(game);
+//                            mGameList.remove(game);
+                        }
+                    };
 
         updateUI();
         ItemTouchHelper itemTouchHelper = new ItemTouchHelper(simpleItemTouchCallback);
         itemTouchHelper.attachToRecyclerView(rvBacklog);
+    }
 
-        // When an entry is clicked on the entry can be updated
-        mAdapter.setOnGameClickListener(new GameAdapter.OnGameClickListener() {
-            @Override
-            public void onGameClick(Game game) {
-                updateGame(game);
-            }
-        });
+    public static void onGameDbUpdated(List list) {
+        mGameList = list;
+        updateUI();
     }
 
     /**
@@ -93,12 +103,13 @@ public class MainActivity extends AppCompatActivity {
     /**
      * Navigate to the game actvity to update the selected game
      *
-     * @param game the selected game to update
+     * @param position the selected game to update
      */
-    public void updateGame(Game game) {
+    public void updateGame(int position) {
         Log.d(TAG, "updateGame");
         Intent intent = new Intent(this, GameActivity.class);
-        intent.putExtra("game", game);
+        Game gameToUpdate = mGameList.get(position);
+        intent.putExtra("game", gameToUpdate);
         intent.setAction(Intent.ACTION_EDIT);
         startActivity(intent);
     }
@@ -109,23 +120,17 @@ public class MainActivity extends AppCompatActivity {
      * @param game the game that has been swiped
      */
     public void deleteGame(Game game) {
-        GameRepository gameRepository = new GameRepository(MainActivity.this);
-        gameRepository.delete(game.getId());
-        // Get a new cursor from our database
-        Cursor cursor = gameRepository.findAll();
-        mAdapter.swapCursor(cursor);
-        mAdapter.notifyDataSetChanged();
+        new GameAsyncTask(TASK_DELETE_GAME).execute(game);
+        updateUI();
         Toast.makeText(MainActivity.this, R.string.game_deleted, Toast.LENGTH_SHORT).show();
     }
 
     /**
      * Retrieve the data from the db
      */
-    private void updateUI() {
-        GameRepository gameRepository = new GameRepository(this);
-        // Get all games from the database and add them to the adapter
-        Cursor cursor = gameRepository.findAll();
-        mAdapter.swapCursor(cursor);
+    private static void updateUI() {
+        db.gameDao().getAllgames();
+        mAdapter.swapList(mGameList);
         // Notify the adapter that it's data has changed so it can redraw itself
         mAdapter.notifyDataSetChanged();
     }
@@ -134,5 +139,43 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         updateUI();
+    }
+
+    @Override
+    public void onGameClick(int position) {
+        updateGame(position);
+    }
+
+    public static class GameAsyncTask extends AsyncTask<Game, Void, List> {
+
+        private int taskCode;
+
+        public GameAsyncTask(int taskCode) {
+            this.taskCode = taskCode;
+        }
+
+        @Override
+        protected List doInBackground(Game... games) {
+            switch (taskCode){
+                case TASK_DELETE_GAME:
+                    db.gameDao().deleteGame(games[0]);
+                    break;
+                case TASK_UPDATE_GAME:
+                    db.gameDao().updateGame(games[0]);
+                    break;
+                case TASK_INSERT_GAME:
+                    db.gameDao().insertGame(games[0]);
+                    break;
+            }
+            //To return a new list with the updated data, we get all the data from the database again.
+            return db.gameDao().getAllgames();
+        }
+
+        @Override
+        protected void onPostExecute(List list) {
+            super.onPostExecute(list);
+            onGameDbUpdated(list);
+        }
+
     }
 }
